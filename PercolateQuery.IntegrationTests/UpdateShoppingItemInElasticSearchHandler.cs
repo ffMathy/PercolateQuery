@@ -15,9 +15,9 @@ namespace PercolateQuery.IntegrationTests
 
         public async Task Handle(ShoppingItemUpdated @event)
         {
-            var updateResponse = await _elasticClient.UpdateAsync<ShoppingItemEs>(@event.Id.ToString(),
+            var updateResponse = await _elasticClient.UpdateAsync<EsStockItem>(@event.Id.ToString(),
                 u => u
-                    .Doc(new ShoppingItemEs {Name = @event.Name, Price = @event.Price})
+                    .Doc(new EsStockItem {Name = @event.Name, Price = @event.Price})
                     .Refresh(Refresh.WaitFor));
         }
     }

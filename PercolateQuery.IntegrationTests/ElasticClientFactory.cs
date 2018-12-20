@@ -7,9 +7,13 @@ namespace PercolateQuery.IntegrationTests
     {
         public static ElasticClient ElasticClient()
         {
-            var uri = new Uri("http://localhost:9200");
+            var uri = new Uri("http://localhost:9201");
             var settings = new ConnectionSettings(uri);
-            settings.DefaultIndex(Strings.IndexName);
+
+            settings.DefaultMappingFor<EsSearchAgent>(x => x.IndexName(Strings.SearchAgentIndexName));
+            settings.DefaultMappingFor<EsStockItem>(x => x.IndexName(Strings.StockItemIndexName));
+
+            settings.DisableDirectStreaming();
             settings.EnableDebugMode();
             var elasticClient =
                 new ElasticClient(settings);

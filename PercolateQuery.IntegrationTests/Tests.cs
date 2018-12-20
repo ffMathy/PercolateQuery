@@ -19,37 +19,34 @@ namespace PercolateQuery.IntegrationTests
         {
             var elasticClient = _elasticClient;
 
-            elasticClient.DeleteIndex(Strings.IndexName);
+            elasticClient.DeleteIndex(Strings.StockItemIndexName);
+            elasticClient.DeleteIndex(Strings.SearchAgentIndexName);
 
-            //TODO: Create index with proper mapping for percolate qury
-            var createIndexResponse = elasticClient.CreateIndex(Strings.IndexName, i => i
-                .Mappings(map => map.Map<ShoppingItemEs>(m => m
-                    .AutoMap()
-                    .Properties(props => props.Percolator(p => p.Name(n => n.Query))))));
+            elasticClient.CreateIndex(Strings.StockItemIndexName, i => i
+                .Mappings(map => map
+                    .Map<EsStockItem>(m => m.AutoMap())));
 
-            var indexDocument = elasticClient.IndexDocument<ShoppingItemEs>(
-                new ShoppingItemEs {Id = "1", Name = "tesla", Price = 100});
-        }
+            elasticClient.CreateIndex(Strings.SearchAgentIndexName, i => i
+                .Mappings(map => map
+                    .Map<EsSearchAgent>(m => m
+                        .Properties(props => props
+                            .Percolator(p => p
+                                .Name(n => n.Query)
+                            )))));
 
-        [Test]
-        public async Task CorrectVersionOfElasticsearchIsRunning()
-        {
-            var elasticClient = _elasticClient;
-
-            var response = await elasticClient.RootNodeInfoAsync();
-            var actual = response.IsValid;
-
-            Assert.IsTrue(actual, $"Couldn't connect to elasticsearch {response.ServerError}");
-
-            var version = response.Version.Number;
-
-            Assert.AreEqual("6.2.4", version);
+            elasticClient.IndexDocument(
+                new EsStockItem
+                {
+                    Id = "1",
+                    Name = "tesla",
+                    Price = 100
+                });
         }
 
         [Test]
         public async Task MappingIsCreatedCorrectly()
         {
-            var mappingResponse = await _elasticClient.GetMappingAsync<ShoppingItemEs>(m => m);
+            var mappingResponse = await _elasticClient.GetMappingAsync<EsSearchAgent>(m => m);
 
             mappingResponse.IsValid.ShouldBe(true);
 
@@ -63,10 +60,10 @@ namespace PercolateQuery.IntegrationTests
         {
             var elasticClient = _elasticClient;
 
-            var registered = await new PricesAlert(elasticClient).Register(100, "tesla");
-            registered.ShouldBe(true);
+            var registered = await new PricesAlertService(elasticClient).Register(100, "tesla");
+            registered.IsValid.ShouldBe(true);
 
-            var getDocument = await elasticClient.GetAsync<ShoppingItemEs>("document_with_alert");
+            var getDocument = await elasticClient.GetAsync<EsSearchAgent>("document_with_alert");
 
             var queryVisitor = new DidWeVisitProperQueries { };
             getDocument.Source.Query.Accept(queryVisitor);
@@ -79,13 +76,13 @@ namespace PercolateQuery.IntegrationTests
         public async Task UpdatingTeslaItemTo90ShouldRiseAlert()
         {
             //register alert
-            var registered = await new PricesAlert(_elasticClient).Register(100, "tesla");
+            var registered = await new PricesAlertService(_elasticClient).Register(100, "tesla");
 
             var @event = new ShoppingItemUpdated { Id = 1, Name = "tesla", Price = 90 };
 
             await new UpdateShoppingItemInElasticSearchHandler(_elasticClient).Handle(@event);
 
-            var updatedDocument = await _elasticClient.GetAsync<ShoppingItemEs>(@event.Id.ToString());
+            var updatedDocument = await _elasticClient.GetAsync<EsStockItem>(@event.Id.ToString());
             updatedDocument.Source.Price.ShouldBe(90);
 
             var alertsFound = await new CheckAlertsHandler(_elasticClient).Handle(@event);
@@ -97,13 +94,13 @@ namespace PercolateQuery.IntegrationTests
         public async Task UpdatingTeslaItemTo110ShouldNotRiseAlert()
         {
             //register alert
-            var registered = await new PricesAlert(_elasticClient).Register(100, "tesla");
+            var registered = await new PricesAlertService(_elasticClient).Register(100, "tesla");
 
             var @event = new ShoppingItemUpdated { Id = 1, Name = "tesla", Price = 110 };
 
             await new UpdateShoppingItemInElasticSearchHandler(_elasticClient).Handle(@event);
 
-            var updatedDocument = await _elasticClient.GetAsync<ShoppingItemEs>(@event.Id.ToString());
+            var updatedDocument = await _elasticClient.GetAsync<EsStockItem>(@event.Id.ToString());
             updatedDocument.Source.Price.ShouldBe(110);
 
             var alertsFound = await new CheckAlertsHandler(_elasticClient).Handle(@event);
@@ -129,7 +126,7 @@ namespace PercolateQuery.IntegrationTests
 
         public Task<bool> Handle(ShoppingItemUpdated @event)
         {
-            return new PricesAlert(_elasticClient).Match(@event);
+            return new PricesAlertService(_elasticClient).Percolate(@event);
         }
     }
 
