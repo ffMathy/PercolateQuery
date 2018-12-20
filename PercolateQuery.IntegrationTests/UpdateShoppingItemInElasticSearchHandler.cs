@@ -13,12 +13,10 @@ namespace PercolateQuery.IntegrationTests
             _elasticClient = elasticClient;
         }
 
-        public async Task Handle(ShoppingItemUpdated @event)
+        public async Task Handle(EsStockItem @event)
         {
-            var updateResponse = await _elasticClient.UpdateAsync<EsStockItem>(@event.Id.ToString(),
-                u => u
-                    .Doc(new EsStockItem {Name = @event.Name, Price = @event.Price})
-                    .Refresh(Refresh.WaitFor));
+            var updateResponse = await _elasticClient.IndexAsync<EsStockItem>(@event, x => x);
+            await _elasticClient.RefreshAsync(Strings.StockItemIndexName);
         }
     }
 }

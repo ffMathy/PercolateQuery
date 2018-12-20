@@ -10,8 +10,15 @@ namespace PercolateQuery.IntegrationTests
             var uri = new Uri("http://localhost:9201");
             var settings = new ConnectionSettings(uri);
 
-            settings.DefaultMappingFor<EsSearchAgent>(x => x.IndexName(Strings.SearchAgentIndexName));
-            settings.DefaultMappingFor<EsStockItem>(x => x.IndexName(Strings.StockItemIndexName));
+            settings.DefaultMappingFor<EsSearchAgent>(x => x
+                .IndexName(Strings.StockItemIndexName)
+                .TypeName("doc")
+                .RelationName("agents"));
+
+            settings.DefaultMappingFor<EsStockItem>(x => x
+                .IndexName(Strings.StockItemIndexName)
+                .TypeName("doc")
+                .RelationName("stockitems"));
 
             settings.DisableDirectStreaming();
             settings.EnableDebugMode();

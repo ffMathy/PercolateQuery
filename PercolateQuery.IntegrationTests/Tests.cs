@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Text;
@@ -20,19 +21,14 @@ namespace PercolateQuery.IntegrationTests
             var elasticClient = _elasticClient;
 
             elasticClient.DeleteIndex(Strings.StockItemIndexName);
-            elasticClient.DeleteIndex(Strings.SearchAgentIndexName);
 
             elasticClient.CreateIndex(Strings.StockItemIndexName, i => i
                 .Mappings(map => map
                     .Map<EsStockItem>(m => m.AutoMap())));
 
-            elasticClient.CreateIndex(Strings.SearchAgentIndexName, i => i
+            elasticClient.CreateIndex(Strings.StockItemIndexName, i => i
                 .Mappings(map => map
-                    .Map<EsSearchAgent>(m => m
-                        .Properties(props => props
-                            .Percolator(p => p
-                                .Name(n => n.Query)
-                            )))));
+                    .Map<EsStockItem>(m => m.AutoMap())));
 
             elasticClient.IndexDocument(
                 new EsStockItem
@@ -44,41 +40,12 @@ namespace PercolateQuery.IntegrationTests
         }
 
         [Test]
-        public async Task MappingIsCreatedCorrectly()
-        {
-            var mappingResponse = await _elasticClient.GetMappingAsync<EsSearchAgent>(m => m);
-
-            mappingResponse.IsValid.ShouldBe(true);
-
-            var indexProperties = IndexProperties(mappingResponse);
-            var queryField = indexProperties["query"];
-            queryField.Type.ShouldBe("percolator");
-        }
-
-        [Test]
-        public async Task RegisterPriceAlertQuery()
-        {
-            var elasticClient = _elasticClient;
-
-            var registered = await new PricesAlertService(elasticClient).Register(100, "tesla");
-            registered.IsValid.ShouldBe(true);
-
-            var getDocument = await elasticClient.GetAsync<EsSearchAgent>("document_with_alert");
-
-            var queryVisitor = new DidWeVisitProperQueries { };
-            getDocument.Source.Query.Accept(queryVisitor);
-
-            queryVisitor.NumericRangeQuery.LessThanOrEqualTo.ShouldBe(100);
-            queryVisitor.MatchQuery.Query.ShouldBe("tesla");
-        }
-
-        [Test]
         public async Task UpdatingTeslaItemTo90ShouldRiseAlert()
         {
             //register alert
             var registered = await new PricesAlertService(_elasticClient).Register(100, "tesla");
 
-            var @event = new ShoppingItemUpdated { Id = 1, Name = "tesla", Price = 90 };
+            var @event = new EsStockItem { Id = Guid.NewGuid().ToString(), Name = "tesla", Price = 90 };
 
             await new UpdateShoppingItemInElasticSearchHandler(_elasticClient).Handle(@event);
 
@@ -86,8 +53,7 @@ namespace PercolateQuery.IntegrationTests
             updatedDocument.Source.Price.ShouldBe(90);
 
             var alertsFound = await new CheckAlertsHandler(_elasticClient).Handle(@event);
-
-            alertsFound.ShouldBe(true);
+            alertsFound.Documents.Any().ShouldBe(true);
         }
 
         [Test]
@@ -96,22 +62,15 @@ namespace PercolateQuery.IntegrationTests
             //register alert
             var registered = await new PricesAlertService(_elasticClient).Register(100, "tesla");
 
-            var @event = new ShoppingItemUpdated { Id = 1, Name = "tesla", Price = 110 };
+            var @event = new EsStockItem { Id = Guid.NewGuid().ToString(), Name = "tesla", Price = 110 };
 
             await new UpdateShoppingItemInElasticSearchHandler(_elasticClient).Handle(@event);
 
-            var updatedDocument = await _elasticClient.GetAsync<EsStockItem>(@event.Id.ToString());
+            var updatedDocument = await _elasticClient.GetAsync<EsStockItem>(@event.Id);
             updatedDocument.Source.Price.ShouldBe(110);
 
             var alertsFound = await new CheckAlertsHandler(_elasticClient).Handle(@event);
-
-            alertsFound.ShouldBe(false);
-        }
-
-        private IProperties IndexProperties(IGetMappingResponse mappingResponse)
-        {
-            var indexMapping = mappingResponse.Indices.FirstOrDefault();
-            return indexMapping.Value.Mappings.Values.FirstOrDefault().Properties;
+            alertsFound.Documents.Any().ShouldBe(false);
         }
     }
 
@@ -124,7 +83,7 @@ namespace PercolateQuery.IntegrationTests
             _elasticClient = elasticClient;
         }
 
-        public Task<bool> Handle(ShoppingItemUpdated @event)
+        public Task<ISearchResponse<EsSearchAgent>> Handle(EsStockItem @event)
         {
             return new PricesAlertService(_elasticClient).Percolate(@event);
         }

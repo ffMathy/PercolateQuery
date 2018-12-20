@@ -19,7 +19,8 @@ namespace PercolateQuery.IntegrationTests
                 .Bool(b => b
                     .Must(
                         must => must.Match(m => m.Field(f => f.Name).Query(itemName)),
-                        must => must.Range(r => r.Field(f => f.Price).LessThanOrEquals(price))));
+                        must => must.Range(r => r.Field(f => f.Price).LessThanOrEquals(price)),
+                        must => must.Term(x => x.Type, "esstockitem")));
             var indexResponse = await _elasticClient
                 .IndexDocumentAsync(new EsSearchAgent() { Query = query });
             await _elasticClient.RefreshAsync(_elasticClient.ConnectionSettings.DefaultIndex);
@@ -27,21 +28,15 @@ namespace PercolateQuery.IntegrationTests
             return indexResponse;
         }
 
-        public async Task<bool> Percolate(ShoppingItemUpdated shoppingItemUpdated)
+        public async Task<ISearchResponse<EsSearchAgent>> Percolate(EsStockItem item)
         {
-            var esStockItem = new EsStockItem
-            {
-                Name = shoppingItemUpdated.Name,
-                Price = shoppingItemUpdated.Price
-            };
             var searchResponse = await _elasticClient.SearchAsync<EsSearchAgent>(s => s
-                .Query(q => q.Percolate(p => p
-                    .Field(f => f.Query)
-                    .Routing(Routing.From(esStockItem))
-                    .Index(Strings.StockItemIndexName)
-                    .Document(esStockItem))));
+                .Query(q => q
+                    .Percolate(p => p
+                        .Field(f => f.Query)
+                        .Document(item))));
 
-            return searchResponse.Documents.Any();
+            return searchResponse;
         }
     }
 }
