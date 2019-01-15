@@ -11,14 +11,10 @@ namespace PercolateQuery.IntegrationTests
             var settings = new ConnectionSettings(uri);
 
             settings.DefaultMappingFor<EsSearchAgent>(x => x
-                .IndexName(Strings.StockItemIndexName)
-                .TypeName("doc")
-                .RelationName("agents"));
+                .IndexName(Strings.SearchAgentIndexName));
 
             settings.DefaultMappingFor<EsStockItem>(x => x
-                .IndexName(Strings.StockItemIndexName)
-                .TypeName("doc")
-                .RelationName("stockitems"));
+                .IndexName(Strings.StockItemIndexName));
 
             settings.DisableDirectStreaming();
             settings.EnableDebugMode();

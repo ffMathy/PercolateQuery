@@ -21,10 +21,17 @@ namespace PercolateQuery.IntegrationTests
             var elasticClient = _elasticClient;
 
             elasticClient.DeleteIndex(Strings.StockItemIndexName);
+            elasticClient.DeleteIndex(Strings.SearchAgentIndexName);
 
             elasticClient.CreateIndex(Strings.StockItemIndexName, i => i
                 .Mappings(map => map
                     .Map<EsStockItem>(m => m.AutoMap())));
+
+            elasticClient.CreateIndex(Strings.SearchAgentIndexName, i => i
+                .Mappings(map => map
+                    .Map<EsSearchAgent>(m => m
+                        .AutoMap<EsSearchAgent>()
+                        .AutoMap<EsStockItem>())));
 
             elasticClient.IndexDocument(
                 new EsStockItem

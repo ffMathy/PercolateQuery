@@ -19,8 +19,7 @@ namespace PercolateQuery.IntegrationTests
                 .Bool(b => b
                     .Must(
                         must => must.Match(m => m.Field(f => f.Name).Query(itemName)),
-                        must => must.Range(r => r.Field(f => f.Price).LessThanOrEquals(price)),
-                        must => must.Term(x => x.Type, "esstockitem")));
+                        must => must.Range(r => r.Field(f => f.Price).LessThanOrEquals(price))));
             var indexResponse = await _elasticClient
                 .IndexDocumentAsync(new EsSearchAgent() { Query = query });
             await _elasticClient.RefreshAsync(_elasticClient.ConnectionSettings.DefaultIndex);
