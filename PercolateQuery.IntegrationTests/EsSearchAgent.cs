@@ -5,7 +5,7 @@ using Nest;
 
 namespace PercolateQuery.IntegrationTests
 {
-    public class EsSearchAgent
+    public class EsSearchAgent : IPercolatedDocument
     {
         public string Type { get; set; }
         public QueryContainer Query { get; set; }

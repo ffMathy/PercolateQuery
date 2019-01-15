@@ -26,10 +26,6 @@ namespace PercolateQuery.IntegrationTests
                 .Mappings(map => map
                     .Map<EsStockItem>(m => m.AutoMap())));
 
-            elasticClient.CreateIndex(Strings.StockItemIndexName, i => i
-                .Mappings(map => map
-                    .Map<EsStockItem>(m => m.AutoMap())));
-
             elasticClient.IndexDocument(
                 new EsStockItem
                 {
